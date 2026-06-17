@@ -1,7 +1,7 @@
 // ─── Firebase Setup ───────────────────────────────────────────────────────────
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
-  getFirestore, collection, onSnapshot, query, orderBy
+  getFirestore, collection, onSnapshot, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -49,21 +49,78 @@ function setupMarkersLayer(enableClustering) {
   map.addLayer(markersLayer);
 }
 
-// ─── Firestore real-time listener ────────────────────────────────────────────
+// ─── Show status message on map ───────────────────────────────────────────────
+function showStatus(msg, type = 'info') {
+  const colors = { info: '#2f7a2f', error: '#dc3545', warn: '#ff9800' };
+  let bar = document.getElementById('statusBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'statusBar';
+    bar.style.cssText = `
+      position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+      padding:10px 20px; border-radius:8px; color:#fff; font-size:0.9rem;
+      z-index:9999; box-shadow:0 2px 8px rgba(0,0,0,0.3); transition:opacity 0.5s;
+    `;
+    document.body.appendChild(bar);
+  }
+  bar.style.background = colors[type] || colors.info;
+  bar.style.opacity = '1';
+  bar.textContent = msg;
+  if (type !== 'error') {
+    setTimeout(() => { bar.style.opacity = '0'; }, 4000);
+  }
+}
+
+// ─── Firestore: load data ─────────────────────────────────────────────────────
 function subscribeToPlantings() {
-  const q = query(plantingsCol, orderBy("date", "asc"));
-  onSnapshot(q, (snapshot) => {
-    allData = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  showStatus('🔄 Connecting to database...');
+
+  // First do a one-time fetch to check if data exists at all
+  getDocs(plantingsCol).then(snapshot => {
+    console.log(`[Firestore] Initial fetch: ${snapshot.size} documents`);
+    if (snapshot.size === 0) {
+      showStatus('ℹ️ No trees in database yet. Add some from the Admin page!', 'warn');
+    }
+  }).catch(err => {
+    console.error('[Firestore] getDocs error:', err);
+    showStatus(`❌ Database error: ${err.message} — Check Firestore Rules in Firebase Console`, 'error');
+  });
+
+  // Real-time listener
+  onSnapshot(plantingsCol, (snapshot) => {
+    console.log(`[Firestore] onSnapshot fired: ${snapshot.size} docs`);
+    allData = snapshot.docs.map(d => {
+      const data = d.data();
+      // Ensure lat/lon are numbers (Firestore may store as string)
+      return {
+        id: d.id,
+        ...data,
+        latitude: Number(data.latitude),
+        longitude: Number(data.longitude)
+      };
+    });
+    allData.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+    console.log('[Firestore] allData sample:', allData.slice(0, 2));
     renderMarkers();
     renderStats();
-  }, (err) => console.error("Firestore error:", err));
+    if (allData.length > 0) {
+      showStatus(`✅ ${allData.length} trees loaded`);
+    }
+  }, (err) => {
+    console.error('[Firestore] onSnapshot error:', err.code, err.message);
+    showStatus(`❌ Live sync error: ${err.message}`, 'error');
+  });
 }
 
 // ─── Render markers ───────────────────────────────────────────────────────────
 function renderMarkers() {
   if (markersLayer?.clearLayers) markersLayer.clearLayers();
+  let placed = 0;
   allData.forEach(p => {
-    if (!isFinite(p.latitude) || !isFinite(p.longitude)) return;
+    if (!isFinite(p.latitude) || !isFinite(p.longitude)) {
+      console.warn('[Marker] Skipping bad coords:', p);
+      return;
+    }
     const marker = L.marker([p.latitude, p.longitude], { icon: window.TREE_DOT_ICON });
     marker.bindPopup(`
       <div style="min-width:160px">
@@ -72,7 +129,9 @@ function renderMarkers() {
         <div class="text-muted small">${p.date || ''}</div>
       </div>`);
     markersLayer.addLayer(marker);
+    placed++;
   });
+  console.log(`[Markers] Placed ${placed} of ${allData.length}`);
   document.getElementById('totalCounter').textContent = `${allData.length} trees`;
 }
 
@@ -98,7 +157,8 @@ function renderStats() {
       <div class="stat-card">
         <h3>Species</h3>
         <div>${speciesList.slice(0, 6).map(s =>
-          `<span class="species-badge">${escapeHtml(s[0])} (${s[1]})</span>`).join('')}
+          `<span class="species-badge">${escapeHtml(s[0])} (${s[1]})</span>`).join('')
+          || '<span class="text-muted small">None yet</span>'}
         </div>
       </div>
     </div>
@@ -172,4 +232,4 @@ window.addEventListener('DOMContentLoaded', () => {
       .then(() => console.log('SW registered'))
       .catch(e => console.warn('SW failed', e));
   }
-});
+});v
