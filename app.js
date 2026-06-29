@@ -27,8 +27,11 @@ initAuth((user) => {
   currentUser = user;
   showUserInfo(user);
   // Show admin link only for admins
+  // Show admin buttons for admins only
   const adminLink = document.getElementById('adminLink');
   if (adminLink) adminLink.style.display = user.role === 'admin' ? 'inline-block' : 'none';
+  const sidebarAdminWrap = document.getElementById('sidebarAdminWrap');
+  if (sidebarAdminWrap) sidebarAdminWrap.style.display = user.role === 'admin' ? 'block' : 'none';
   initMap();
   subscribeToPlantings();
 }, () => {
