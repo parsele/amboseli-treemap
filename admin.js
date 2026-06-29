@@ -48,8 +48,18 @@ async function savePlanting(obj) {
     duration:   String(obj.duration   || '').trim()
   };
   if (!isFinite(record.latitude) || !isFinite(record.longitude)) return false;
+  if (isDuplicate(record)) return false; // skip duplicates
   await addDoc(plantingsCol, record);
   return true;
+}
+
+// Check if a planting already exists in allData (same lat, lon, species)
+function isDuplicate(record) {
+  return allData.some(existing =>
+    Math.abs(existing.latitude  - record.latitude)  < 0.000001 &&
+    Math.abs(existing.longitude - record.longitude) < 0.000001 &&
+    (existing.species || '').trim().toLowerCase() === (record.species || '').trim().toLowerCase()
+  );
 }
 
 async function deletePlanting(id) {
@@ -225,29 +235,34 @@ async function processRows(rows, filename) {
   progressLabel.textContent = 'Saving ' + parsed.length + ' trees...';
   progressBar.style.width = '0%';
 
-  let added = 0, failed = 0;
+  let added = 0, skipped = 0, failed = 0;
   for (const row of parsed) {
     try {
-      await savePlanting(row);
-      added++;
+      const saved = await savePlanting(row);
+      if (saved === false) {
+        skipped++;
+      } else {
+        added++;
+      }
     } catch(err) {
       failed++;
       console.error('[Import] Failed:', row, err.message);
     }
-    const pct = Math.round(((added + failed) / parsed.length) * 100);
+    const pct = Math.round(((added + skipped + failed) / parsed.length) * 100);
     progressBar.style.width = pct + '%';
-    progressCount.textContent = (added + failed) + ' / ' + parsed.length;
+    progressCount.textContent = (added + skipped + failed) + ' / ' + parsed.length;
   }
 
   progressWrap.style.display = 'none';
+  const skipMsg = skipped > 0 ? ' (' + skipped + ' duplicates skipped)' : '';
   if (failed === 0) {
     showImportResult(
-      '<i class="bi bi-check-circle"></i> Saved <strong>' + added + ' trees</strong> from <em>' + filename + '</em>. Now live on all devices!',
-      'success'
+      '<i class="bi bi-check-circle"></i> Saved <strong>' + added + ' trees</strong> from <em>' + filename + '</em>' + skipMsg + '. Now live on all devices!',
+      added > 0 ? 'success' : 'warning'
     );
   } else {
     showImportResult(
-      '<i class="bi bi-exclamation-triangle"></i> Saved ' + added + ' trees, ' + failed + ' failed. Check console.',
+      '<i class="bi bi-exclamation-triangle"></i> Saved ' + added + ' trees, ' + failed + ' failed' + skipMsg + '.',
       'warning'
     );
   }
