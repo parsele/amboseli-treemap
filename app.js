@@ -156,7 +156,7 @@ function renderMarkers() {
     marker.bindPopup([
       '<div style="min-width:160px">',
       '<div style="font-weight:700;color:#126012">' + escapeHtml(p.species || 'Unknown') + '</div>',
-      '<div style="font-size:0.9rem">By: <strong>' + escapeHtml(p.planted_by || 'Unknown') + '</strong></div>',
+      '<div style="font-size:0.9rem">By: <strong>' + escapeHtml(p.planted_by || 'Green Planet Ambassadors') + '</strong></div>',
       '<div class="text-muted small">' + (p.date || '') + '</div>',
       '</div>'
     ].join(''));
@@ -173,7 +173,7 @@ function renderStats() {
   allData.forEach(function(p) {
     var s = (p.species || 'Unknown').trim();
     speciesCount[s] = (speciesCount[s] || 0) + 1;
-    var b = (p.planted_by || 'Unknown').trim();
+    var b = (p.planted_by || 'Green Planet Ambassadors').trim();
     planters[b] = (planters[b] || 0) + 1;
   });
   var speciesList = Object.entries(speciesCount).sort(function(a,b){ return b[1]-a[1]; });
@@ -192,7 +192,7 @@ function renderStats() {
 
   var recentHtml = allData.length ? allData.slice(-6).reverse().map(function(r) {
     return '<div style="padding:6px 0;border-bottom:1px solid #e8f5e9">' +
-      '<b>' + escapeHtml(r.species || 'Unknown') + '</b> - ' + escapeHtml(r.planted_by || 'Unknown') +
+      '<b>' + escapeHtml(r.species || 'Unknown') + '</b> - ' + escapeHtml(r.planted_by || 'Green Planet Ambassadors') +
       '<div class="text-muted small">' + (r.date || '') + ' &bull; ' + r.latitude + ', ' + r.longitude + '</div>' +
       '</div>';
   }).join('') : '<div class="text-muted small">No plantings yet. Add some from the Admin page!</div>';
