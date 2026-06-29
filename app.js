@@ -29,13 +29,27 @@ function initMap() {
   map = L.map('map', { zoomControl: true }).setView(amboseliCenter, 16);
 
   // Satellite/aerial layer (default)
+  // Base: satellite imagery
   satelliteLayer = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     {
       maxZoom: 19,
-      attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, GeoEye, Earthstar Geographics'
+      attribution: 'Tiles &copy; Esri &mdash; Esri, Maxar, GeoEye, Earthstar Geographics'
     }
   );
+
+  // Labels overlay: village names, roads, boundaries on top of satellite
+  var labelsLayer = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+    {
+      maxZoom: 19,
+      opacity: 1,
+      pane: 'shadowPane'
+    }
+  );
+
+  // Hybrid = satellite + labels (default)
+  var hybridLayer = L.layerGroup([satelliteLayer, labelsLayer]);
 
   // Street map layer
   streetLayer = L.tileLayer(
@@ -46,13 +60,14 @@ function initMap() {
     }
   );
 
-  // Add satellite by default
-  satelliteLayer.addTo(map);
+  // Add hybrid (satellite + village labels) by default
+  hybridLayer.addTo(map);
 
   // Layer switcher top-right
   L.control.layers(
     {
-      '<span style="font-weight:600">&#x1F6F0; Satellite / Aerial</span>': satelliteLayer,
+      '<span style="font-weight:600">&#x1F6F0; Satellite + Villages</span>': hybridLayer,
+      '<span style="font-weight:600">&#x1F4F7; Satellite Only</span>': satelliteLayer,
       '<span style="font-weight:600">&#x1F5FA; Street Map</span>': streetLayer
     },
     {},
