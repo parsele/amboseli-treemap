@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import {
   getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { initAuth, logoutUser } from "./auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyALkQrmJSVMoKOHID9c3ojSt0w4Tl7GjfM",
@@ -16,14 +17,7 @@ const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const plantingsCol = collection(db, "plantings");
 
-const ADMIN_PASSWORD = "lekatoo126";
-const SESSION_KEY = "amboseli_admin_auth";
-function isLoggedIn() { return sessionStorage.getItem(SESSION_KEY) === "true"; }
-function login(pw) {
-  if (pw === ADMIN_PASSWORD) { sessionStorage.setItem(SESSION_KEY, "true"); return true; }
-  return false;
-}
-function logout() { sessionStorage.removeItem(SESSION_KEY); window.location.reload(); }
+// Auth handled by Firebase — see auth.js
 
 let allData = [];
 
@@ -323,38 +317,24 @@ function escapeHtml(s) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
-  const loginScreen   = document.getElementById('loginScreen');
-  const adminArea     = document.getElementById('adminArea');
-  const passwordInput = document.getElementById('passwordInput');
-  const loginBtn      = document.getElementById('loginBtn');
-  const loginError    = document.getElementById('loginError');
-  const togglePwd     = document.getElementById('togglePwd');
-
-  if (isLoggedIn()) {
-    loginScreen.style.display = 'none';
-    adminArea.style.display = 'block';
-    initAdmin();
-  }
-
-  loginBtn.addEventListener('click', () => {
-    if (login(passwordInput.value)) {
-      loginScreen.style.display = 'none';
-      adminArea.style.display = 'block';
-      loginError.style.display = 'none';
-      initAdmin();
-    } else {
-      loginError.style.display = 'block';
-      passwordInput.value = '';
-      passwordInput.focus();
+  // Check Firebase Auth — admin only
+  initAuth((user) => {
+    if (user.role !== 'admin') {
+      alert('Access denied. Admins only.');
+      window.location.href = 'index.html';
+      return;
     }
-  });
-
-  passwordInput.addEventListener('keydown', e => { if (e.key === 'Enter') loginBtn.click(); });
-
-  togglePwd.addEventListener('click', () => {
-    const isText = passwordInput.type === 'text';
-    passwordInput.type = isText ? 'password' : 'text';
-    togglePwd.innerHTML = isText ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
+    // Hide loading, show admin
+    const loading = document.getElementById('loadingScreen');
+    const area = document.getElementById('adminArea');
+    if (loading) loading.style.display = 'none';
+    if (area) area.style.display = 'block';
+    const userInfo = document.getElementById('adminUserInfo');
+    if (userInfo) userInfo.textContent = user.name || user.email;
+    initAdmin();
+  }, () => {
+    // Not logged in
+    window.location.href = 'login.html';
   });
 });
 
@@ -404,7 +384,10 @@ function initAdmin() {
   document.getElementById('exportXlsxBtn').addEventListener('click', exportXlsx);
   document.getElementById('downloadTemplateCsv').addEventListener('click', downloadTemplateCsv);
   document.getElementById('downloadTemplateXlsx').addEventListener('click', downloadTemplateXlsx);
-  document.getElementById('logoutBtn').addEventListener('click', () => {
-    if (confirm('Log out?')) logout();
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    if (confirm('Log out?')) {
+      await logoutUser();
+      window.location.href = 'login.html';
+    }
   });
 }
