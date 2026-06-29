@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login - Amboseli Green Planet Ambassadors</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #e8f5e9 0%, #f4faf4 100%); }
+    .auth-card { background: #fff; border-radius: 18px; box-shadow: 0 8px 40px rgba(47,122,47,0.13); padding: 40px 36px; width: 100%; max-width: 420px; }
+    .auth-logo { font-size: 3rem; margin-bottom: 4px; }
+    .auth-title { font-size: 1.4rem; font-weight: 700; color: #1a4d1a; }
+    .auth-sub { color: #777; font-size: 0.88rem; margin-bottom: 24px; }
+    .tab-btns { display: flex; background: #f0faf0; border-radius: 10px; padding: 4px; margin-bottom: 24px; }
+    .tab-btn { flex: 1; border: none; background: transparent; padding: 8px; border-radius: 8px; font-size: 0.88rem; font-weight: 500; color: #555; cursor: pointer; transition: all 0.2s; }
+    .tab-btn.active { background: #fff; color: #1a4d1a; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .form-label { font-size: 0.83rem; font-weight: 600; color: #444; margin-bottom: 4px; }
+    .form-control { border-radius: 8px; font-size: 0.9rem; }
+    .btn-auth { background: #1a4d1a; color: #fff; border: none; border-radius: 10px; padding: 11px; font-size: 0.95rem; font-weight: 600; width: 100%; transition: background 0.2s; }
+    .btn-auth:hover { background: #2f7a2f; color: #fff; }
+    .admin-code-wrap { background: #fff8e1; border: 1px solid #ffe082; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.82rem; color: #7a5c00; }
+    .divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: #aaa; font-size: 0.8rem; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: #e0e0e0; }
+    .back-link { text-align: center; margin-top: 16px; font-size: 0.85rem; }
+    .back-link a { color: #2f7a2f; text-decoration: none; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <div class="auth-card">
+    <div class="text-center mb-3">
+      <div class="auth-logo">🌳</div>
+      <div class="auth-title">Amboseli Green Planet</div>
+      <div class="auth-sub">Tree Planting Tracker</div>
+    </div>
+
+    <!-- Tab buttons -->
+    <div class="tab-btns">
+      <button class="tab-btn active" id="tabLoginBtn" onclick="switchTab('login')">
+        <i class="bi bi-box-arrow-in-right me-1"></i> Login
+      </button>
+      <button class="tab-btn" id="tabRegisterBtn" onclick="switchTab('register')">
+        <i class="bi bi-person-plus me-1"></i> Register
+      </button>
+    </div>
+
+    <!-- Login form -->
+    <div id="loginForm">
+      <div class="mb-3">
+        <label class="form-label">Email address</label>
+        <input type="email" id="loginEmail" class="form-control" placeholder="you@example.com">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        <div class="input-group">
+          <input type="password" id="loginPassword" class="form-control" placeholder="Your password">
+          <button class="btn btn-outline-secondary" type="button" onclick="togglePwd('loginPassword', this)">
+            <i class="bi bi-eye"></i>
+          </button>
+        </div>
+      </div>
+      <div id="loginError" class="alert alert-danger py-2 small mb-3" style="display:none"></div>
+      <button class="btn-auth" id="loginBtn" data-label='<i class="bi bi-box-arrow-in-right me-1"></i> Login' onclick="doLogin()">
+        <i class="bi bi-box-arrow-in-right me-1"></i> Login
+      </button>
+    </div>
+
+    <!-- Register form -->
+    <div id="registerForm" style="display:none">
+      <div class="mb-3">
+        <label class="form-label">Full name</label>
+        <input type="text" id="regName" class="form-control" placeholder="John Doe">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Email address</label>
+        <input type="email" id="regEmail" class="form-control" placeholder="you@example.com">
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Password</label>
+        <div class="input-group">
+          <input type="password" id="regPassword" class="form-control" placeholder="Min 6 characters">
+          <button class="btn btn-outline-secondary" type="button" onclick="togglePwd('regPassword', this)">
+            <i class="bi bi-eye"></i>
+          </button>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Confirm password</label>
+        <input type="password" id="regConfirm" class="form-control" placeholder="Repeat password">
+      </div>
+
+      <div class="admin-code-wrap mb-3">
+        <i class="bi bi-shield-lock me-1"></i>
+        <strong>Admin access?</strong> Enter the admin code below. Leave blank for regular account.
+        <input type="text" id="regAdminCode" class="form-control mt-2" placeholder="Admin code (optional)">
+      </div>
+
+      <div id="registerError" class="alert alert-danger py-2 small mb-3" style="display:none"></div>
+      <button class="btn-auth" id="registerBtn" data-label='<i class="bi bi-person-check me-1"></i> Create Account' onclick="doRegister()">
+        <i class="bi bi-person-check me-1"></i> Create Account
+      </button>
+    </div>
+
+    <div class="back-link">
+      <a href="index.html"><i class="bi bi-arrow-left"></i> Back to map</a>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initAuth, loginUser, registerUser, logoutUser } from './auth.js';
+
+    // Check if already logged in
+    initAuth((user) => {
+      // Already logged in — redirect
+      if (user.role === 'admin') {
+        window.location.href = 'admin.html';
+      } else {
+        window.location.href = 'index.html';
+      }
+    }, () => {});
+
+    window.switchTab = function(tab) {
+      document.getElementById('loginForm').style.display    = tab === 'login'    ? 'block' : 'none';
+      document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+      document.getElementById('tabLoginBtn').classList.toggle('active', tab === 'login');
+      document.getElementById('tabRegisterBtn').classList.toggle('active', tab === 'register');
+    };
+
+    window.togglePwd = function(inputId, btn) {
+      const input = document.getElementById(inputId);
+      const isText = input.type === 'text';
+      input.type = isText ? 'password' : 'text';
+      btn.innerHTML = isText ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
+    };
+
+    window.doLogin = async function() {
+      const email    = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+      const errEl    = document.getElementById('loginError');
+      const btn      = document.getElementById('loginBtn');
+
+      errEl.style.display = 'none';
+      if (!email || !password) { errEl.textContent = 'Please fill in all fields.'; errEl.style.display = 'block'; return; }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Logging in...';
+
+      try {
+        const user = await loginUser(email, password);
+        window.location.href = user.role === 'admin' ? 'admin.html' : 'index.html';
+      } catch(err) {
+        errEl.textContent = friendlyError(err.code);
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = btn.getAttribute('data-label');
+      }
+    };
+
+    window.doRegister = async function() {
+      const name      = document.getElementById('regName').value.trim();
+      const email     = document.getElementById('regEmail').value.trim();
+      const password  = document.getElementById('regPassword').value;
+      const confirm   = document.getElementById('regConfirm').value;
+      const adminCode = document.getElementById('regAdminCode').value.trim();
+      const errEl     = document.getElementById('registerError');
+      const btn       = document.getElementById('registerBtn');
+
+      errEl.style.display = 'none';
+      if (!name || !email || !password) { errEl.textContent = 'Please fill in all fields.'; errEl.style.display = 'block'; return; }
+      if (password !== confirm)          { errEl.textContent = 'Passwords do not match.';   errEl.style.display = 'block'; return; }
+      if (password.length < 6)           { errEl.textContent = 'Password must be at least 6 characters.'; errEl.style.display = 'block'; return; }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating account...';
+
+      try {
+        const user = await registerUser(name, email, password, adminCode);
+        window.location.href = user.role === 'admin' ? 'admin.html' : 'index.html';
+      } catch(err) {
+        errEl.textContent = friendlyError(err.code);
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.innerHTML = btn.getAttribute('data-label');
+      }
+    };
+
+    // Enter key support
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const loginVisible = document.getElementById('loginForm').style.display !== 'none';
+        if (loginVisible) window.doLogin(); else window.doRegister();
+      }
+    });
+
+    function friendlyError(code) {
+      const map = {
+        'auth/user-not-found':       'No account found with this email.',
+        'auth/wrong-password':       'Incorrect password. Try again.',
+        'auth/email-already-in-use': 'This email is already registered.',
+        'auth/invalid-email':        'Please enter a valid email address.',
+        'auth/weak-password':        'Password must be at least 6 characters.',
+        'auth/invalid-credential':   'Incorrect email or password.',
+        'auth/too-many-requests':    'Too many attempts. Please try again later.'
+      };
+      return map[code] || 'Something went wrong. Please try again.';
+    }
+  </script>
+</body>
+</html>
