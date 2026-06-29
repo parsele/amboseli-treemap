@@ -29,46 +29,56 @@ function initMap() {
   map = L.map('map', { zoomControl: true }).setView(amboseliCenter, 16);
 
   // Satellite/aerial layer (default)
-  // Base: satellite imagery
+  // Google Hybrid: best satellite + road + village labels
+  var googleHybrid = L.tileLayer(
+    'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    {
+      subdomains: ['0','1','2','3'],
+      maxZoom: 21,
+      attribution: 'Map data &copy; Google'
+    }
+  );
+
+  // Google Satellite only (no labels)
   satelliteLayer = L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
     {
-      maxZoom: 19,
-      attribution: 'Tiles &copy; Esri &mdash; Esri, Maxar, GeoEye, Earthstar Geographics'
+      subdomains: ['0','1','2','3'],
+      maxZoom: 21,
+      attribution: 'Map data &copy; Google'
     }
   );
 
-  // Labels overlay: village names, roads, boundaries on top of satellite
-  var labelsLayer = L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-    {
-      maxZoom: 19,
-      opacity: 1,
-      pane: 'shadowPane'
-    }
-  );
-
-  // Hybrid = satellite + labels (default)
-  var hybridLayer = L.layerGroup([satelliteLayer, labelsLayer]);
-
-  // Street map layer
+  // Google Roads/Terrain
   streetLayer = L.tileLayer(
-    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
     {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
+      subdomains: ['0','1','2','3'],
+      maxZoom: 21,
+      attribution: 'Map data &copy; Google'
     }
   );
 
-  // Add hybrid (satellite + village labels) by default
-  hybridLayer.addTo(map);
+  // Google Terrain
+  var terrainLayer = L.tileLayer(
+    'https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}',
+    {
+      subdomains: ['0','1','2','3'],
+      maxZoom: 21,
+      attribution: 'Map data &copy; Google'
+    }
+  );
 
-  // Layer switcher top-right
+  // Default: Google Hybrid (satellite + village names + roads)
+  googleHybrid.addTo(map);
+
+  // Layer switcher
   L.control.layers(
     {
-      '<span style="font-weight:600">&#x1F6F0; Satellite + Villages</span>': hybridLayer,
+      '<span style="font-weight:600">&#x1F6F0; Satellite + Labels</span>': googleHybrid,
       '<span style="font-weight:600">&#x1F4F7; Satellite Only</span>': satelliteLayer,
-      '<span style="font-weight:600">&#x1F5FA; Street Map</span>': streetLayer
+      '<span style="font-weight:600">&#x1F5FA; Road Map</span>': streetLayer,
+      '<span style="font-weight:600">&#x26F0; Terrain</span>': terrainLayer
     },
     {},
     { position: 'topright', collapsed: false }
