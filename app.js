@@ -1,8 +1,8 @@
-// Firebase Setup
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import {
   getFirestore, collection, onSnapshot, getDocs
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { initAuth, logoutUser } from './auth.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyALkQrmJSVMoKOHID9c3ojSt0w4Tl7GjfM",
@@ -10,69 +10,64 @@ const firebaseConfig = {
   projectId: "amboseli-trees",
   storageBucket: "amboseli-trees.firebasestorage.app",
   messagingSenderId: "1014751005749",
-  appId: "1:1014751005749:web:cb79ed5b00a4b1cb39b57c",
-  measurementId: "G-MXZC6BZJVW"
+  appId: "1:1014751005749:web:cb79ed5b00a4b1cb39b57c"
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const plantingsCol = collection(db, "plantings");
 
-// State
 let map, markersLayer, satelliteLayer, streetLayer;
 let useClustering = false;
 let allData = [];
+let currentUser = null;
 
-// Map Init
+// Auth guard
+initAuth((user) => {
+  currentUser = user;
+  showUserInfo(user);
+  // Show admin link only for admins
+  const adminLink = document.getElementById('adminLink');
+  if (adminLink) adminLink.style.display = user.role === 'admin' ? 'inline-block' : 'none';
+  initMap();
+  subscribeToPlantings();
+}, () => {
+  // Not logged in — redirect to login
+  window.location.href = 'login.html';
+});
+
+function showUserInfo(user) {
+  const el = document.getElementById('userInfo');
+  if (!el) return;
+  const badge = user.role === 'admin'
+    ? '<span class="badge bg-warning text-dark ms-1"><i class="bi bi-shield-fill"></i> Admin</span>'
+    : '<span class="badge bg-light text-success ms-1">User</span>';
+  el.innerHTML = '<i class="bi bi-person-circle me-1"></i>' + escapeHtml(user.name || user.email) + badge;
+}
+
 function initMap() {
   const amboseliCenter = [-2.699, 37.230];
   map = L.map('map', { zoomControl: true }).setView(amboseliCenter, 16);
 
-  // Satellite/aerial layer (default)
-  // Google Hybrid: best satellite + road + village labels
   var googleHybrid = L.tileLayer(
     'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-    {
-      subdomains: ['0','1','2','3'],
-      maxZoom: 21,
-      attribution: 'Map data &copy; Google'
-    }
+    { subdomains: ['0','1','2','3'], maxZoom: 21, attribution: 'Map data &copy; Google' }
   );
-
-  // Google Satellite only (no labels)
   satelliteLayer = L.tileLayer(
     'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-    {
-      subdomains: ['0','1','2','3'],
-      maxZoom: 21,
-      attribution: 'Map data &copy; Google'
-    }
+    { subdomains: ['0','1','2','3'], maxZoom: 21, attribution: 'Map data &copy; Google' }
   );
-
-  // Google Roads/Terrain
   streetLayer = L.tileLayer(
     'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-    {
-      subdomains: ['0','1','2','3'],
-      maxZoom: 21,
-      attribution: 'Map data &copy; Google'
-    }
+    { subdomains: ['0','1','2','3'], maxZoom: 21, attribution: 'Map data &copy; Google' }
   );
-
-  // Google Terrain
   var terrainLayer = L.tileLayer(
     'https://mt{s}.google.com/vt/lyrs=p&x={x}&y={y}&z={z}',
-    {
-      subdomains: ['0','1','2','3'],
-      maxZoom: 21,
-      attribution: 'Map data &copy; Google'
-    }
+    { subdomains: ['0','1','2','3'], maxZoom: 21, attribution: 'Map data &copy; Google' }
   );
 
-  // Default: Google Hybrid (satellite + village names + roads)
   googleHybrid.addTo(map);
 
-  // Layer switcher
   L.control.layers(
     {
       '<span style="font-weight:600">&#x1F6F0; Satellite + Labels</span>': googleHybrid,
@@ -86,25 +81,20 @@ function initMap() {
 
   setupMarkersLayer(useClustering);
 
-  // Bright green dot icon - visible on satellite imagery
   window.TREE_DOT_ICON = L.divIcon({
     html: '<span class="tree-dot"></span>',
     className: 'tree-dot-icon',
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
-    popupAnchor: [0, -10]
+    iconSize: [16, 16], iconAnchor: [8, 8], popupAnchor: [0, -10]
   });
 }
 
 function setupMarkersLayer(enableClustering) {
   if (markersLayer) { try { map.removeLayer(markersLayer); } catch (e) {} }
   markersLayer = (enableClustering && typeof L.markerClusterGroup === 'function')
-    ? L.markerClusterGroup()
-    : L.layerGroup();
+    ? L.markerClusterGroup() : L.layerGroup();
   map.addLayer(markersLayer);
 }
 
-// Status bar
 function showStatus(msg, type) {
   type = type || 'info';
   var colors = { info: '#2f7a2f', error: '#dc3545', warn: '#ff9800' };
@@ -112,69 +102,47 @@ function showStatus(msg, type) {
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'statusBar';
-    bar.style.cssText = [
-      'position:fixed', 'bottom:16px', 'left:50%', 'transform:translateX(-50%)',
-      'padding:10px 20px', 'border-radius:8px', 'color:#fff', 'font-size:0.9rem',
-      'z-index:9999', 'box-shadow:0 2px 8px rgba(0,0,0,0.3)', 'transition:opacity 0.5s'
-    ].join(';');
+    bar.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;color:#fff;font-size:0.9rem;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:opacity 0.5s';
     document.body.appendChild(bar);
   }
   bar.style.background = colors[type] || colors.info;
   bar.style.opacity = '1';
   bar.textContent = msg;
-  if (type !== 'error') {
-    setTimeout(function() { bar.style.opacity = '0'; }, 4000);
-  }
+  if (type !== 'error') setTimeout(function() { bar.style.opacity = '0'; }, 4000);
 }
 
-// Firestore real-time listener
 function subscribeToPlantings() {
   showStatus('Connecting to database...');
-
   getDocs(plantingsCol).then(function(snapshot) {
-    console.log('[Firestore] Initial fetch: ' + snapshot.size + ' documents');
-    if (snapshot.size === 0) {
-      showStatus('No trees in database yet. Add some from the Admin page!', 'warn');
-    }
+    if (snapshot.size === 0) showStatus('No trees yet. Add some from Admin!', 'warn');
   }).catch(function(err) {
-    console.error('[Firestore] getDocs error:', err);
-    showStatus('Database error: ' + err.message + ' - Check Firestore Rules', 'error');
+    showStatus('Database error: ' + err.message, 'error');
   });
 
   onSnapshot(plantingsCol, function(snapshot) {
-    console.log('[Firestore] onSnapshot: ' + snapshot.size + ' docs');
     allData = snapshot.docs.map(function(d) {
       var data = d.data();
       return Object.assign({ id: d.id }, data, {
-        latitude:  Number(data.latitude),
+        latitude: Number(data.latitude),
         longitude: Number(data.longitude)
       });
     });
-    allData.sort(function(a, b) {
-      return (a.date || '').localeCompare(b.date || '');
-    });
+    allData.sort(function(a, b) { return (a.date || '').localeCompare(b.date || ''); });
     renderMarkers();
     renderStats();
     if (allData.length > 0) {
       showStatus(allData.length + ' trees loaded');
-      // Auto-fit map to show all trees
-      var validPoints = allData.filter(function(p) {
-        return isFinite(p.latitude) && isFinite(p.longitude);
-      }).map(function(p) { return [p.latitude, p.longitude]; });
-      if (validPoints.length > 0) {
-        map.fitBounds(L.latLngBounds(validPoints), { padding: [40, 40], maxZoom: 17 });
-      }
+      var pts = allData.filter(function(p) { return isFinite(p.latitude) && isFinite(p.longitude); })
+                       .map(function(p) { return [p.latitude, p.longitude]; });
+      if (pts.length > 0) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 17 });
     }
   }, function(err) {
-    console.error('[Firestore] onSnapshot error:', err.code, err.message);
-    showStatus('Live sync error: ' + err.message, 'error');
+    showStatus('Sync error: ' + err.message, 'error');
   });
 }
 
-// Render markers
 function renderMarkers() {
   if (markersLayer && markersLayer.clearLayers) markersLayer.clearLayers();
-  var placed = 0;
   allData.forEach(function(p) {
     if (!isFinite(p.latitude) || !isFinite(p.longitude)) return;
     var marker = L.marker([p.latitude, p.longitude], { icon: window.TREE_DOT_ICON });
@@ -182,17 +150,15 @@ function renderMarkers() {
       '<div style="min-width:160px">',
       '<div style="font-weight:700;color:#126012">' + escapeHtml(p.species || 'Unknown') + '</div>',
       '<div style="font-size:0.9rem">By: <strong>' + escapeHtml(p.planted_by || 'Green Planet Ambassadors') + '</strong></div>',
+      p.boma ? '<div class="text-muted small"><i class="bi bi-geo"></i> ' + escapeHtml(p.boma) + '</div>' : '',
       '<div class="text-muted small">' + (p.date || '') + '</div>',
       '</div>'
     ].join(''));
     markersLayer.addLayer(marker);
-    placed++;
   });
-  console.log('[Markers] Placed ' + placed + ' of ' + allData.length);
   document.getElementById('totalCounter').textContent = allData.length + ' trees';
 }
 
-// Render stats
 function renderStats() {
   var speciesCount = {}, planters = {};
   allData.forEach(function(p) {
@@ -201,40 +167,31 @@ function renderStats() {
     var b = (p.planted_by || 'Green Planet Ambassadors').trim();
     planters[b] = (planters[b] || 0) + 1;
   });
-  var speciesList = Object.entries(speciesCount).sort(function(a,b){ return b[1]-a[1]; });
+  var speciesList  = Object.entries(speciesCount).sort(function(a,b){ return b[1]-a[1]; });
   var plantersList = Object.entries(planters).sort(function(a,b){ return b[1]-a[1]; }).slice(0,5);
 
-  var speciesHtml = speciesList.slice(0,6).map(function(s) {
+  var speciesHtml = speciesList.slice(0,8).map(function(s) {
     return '<span class="species-badge">' + escapeHtml(s[0]) + ' (' + s[1] + ')</span>';
   }).join('') || '<span class="text-muted small">None yet</span>';
 
   var plantersHtml = plantersList.length ? plantersList.map(function(p) {
-    return '<div class="planter-item">' +
-      '<div class="planter-avatar">' + escapeHtml(p[0].charAt(0) || '?') + '</div>' +
-      '<div>' + escapeHtml(p[0]) + '<div class="text-muted small">' + p[1] + ' trees</div></div>' +
-      '</div>';
+    return '<div class="planter-item"><div class="planter-avatar">' + escapeHtml(p[0].charAt(0)||'?') + '</div>' +
+      '<div>' + escapeHtml(p[0]) + '<div class="text-muted small">' + p[1] + ' trees</div></div></div>';
   }).join('') : '<div class="text-muted small">No data yet</div>';
 
   var recentHtml = allData.length ? allData.slice(-6).reverse().map(function(r) {
     return '<div style="padding:6px 0;border-bottom:1px solid #e8f5e9">' +
-      '<b>' + escapeHtml(r.species || 'Unknown') + '</b> - ' + escapeHtml(r.planted_by || 'Green Planet Ambassadors') +
-      '<div class="text-muted small">' + (r.date || '') + ' &bull; ' + r.latitude + ', ' + r.longitude + '</div>' +
-      '</div>';
-  }).join('') : '<div class="text-muted small">No plantings yet. Add some from the Admin page!</div>';
+      '<b>' + escapeHtml(r.species || 'Unknown') + '</b> — ' + escapeHtml(r.boma || r.planted_by || 'Green Planet Ambassadors') +
+      '<div class="text-muted small">' + (r.date||'') + ' &bull; ' + r.latitude + ', ' + r.longitude + '</div></div>';
+  }).join('') : '<div class="text-muted small">No plantings yet.</div>';
 
   document.getElementById('statsArea').innerHTML =
     '<div class="stats-grid">' +
-      '<div class="stat-card">' +
-        '<h3>Total Trees</h3>' +
-        '<div class="stat-number">' + allData.length + '</div>' +
-        '<div class="text-muted small">Across all Amboseli plots</div>' +
-      '</div>' +
+      '<div class="stat-card"><h3>Total Trees</h3><div class="stat-number">' + allData.length + '</div><div class="text-muted small">Across all Amboseli plots</div></div>' +
       '<div class="stat-card"><h3>Species</h3><div>' + speciesHtml + '</div></div>' +
     '</div>' +
     '<div class="stat-card mt-2"><h4>Top Planters</h4>' + plantersHtml + '</div>' +
-    '<div class="stat-card mt-2"><h4>Recent Plantings</h4>' +
-      '<div class="recent-list">' + recentHtml + '</div>' +
-    '</div>';
+    '<div class="stat-card mt-2"><h4>Recent Plantings</h4><div class="recent-list">' + recentHtml + '</div></div>';
 }
 
 function escapeHtml(s) {
@@ -243,22 +200,24 @@ function escapeHtml(s) {
   });
 }
 
-// Boot
 window.addEventListener('DOMContentLoaded', function() {
-  initMap();
-  subscribeToPlantings();
-
-  // Sidebar toggle
-  var sidebarToggle = document.getElementById('sidebarToggle');
-  if (sidebarToggle) {
-    sidebarToggle.addEventListener('click', function() {
-      var sidebar = document.getElementById('sidebar');
-      if (sidebar) sidebar.classList.toggle('sidebar-collapsed');
-      setTimeout(function() { map.invalidateSize(); }, 300);
+  // Logout button
+  var logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async function() {
+      await logoutUser();
+      window.location.href = 'login.html';
     });
   }
 
-  // Clustering toggle
+  var sidebarToggle = document.getElementById('sidebarToggle');
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener('click', function() {
+      document.getElementById('sidebar')?.classList.toggle('sidebar-collapsed');
+      setTimeout(function() { map && map.invalidateSize(); }, 300);
+    });
+  }
+
   var clusterToggle = document.getElementById('clusterToggle');
   if (clusterToggle) {
     clusterToggle.checked = useClustering;
@@ -269,12 +228,10 @@ window.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // PWA install
-  var deferredPrompt;
   var installBtn = document.getElementById('installBtn');
+  var deferredPrompt;
   window.addEventListener('beforeinstallprompt', function(e) {
-    e.preventDefault();
-    deferredPrompt = e;
+    e.preventDefault(); deferredPrompt = e;
     if (installBtn) installBtn.style.display = 'inline-block';
   });
   if (installBtn) {
@@ -287,10 +244,7 @@ window.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Service worker
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/service-worker.js')
-      .then(function() { console.log('SW registered'); })
-      .catch(function(e) { console.warn('SW failed', e); });
+    navigator.serviceWorker.register('/service-worker.js').catch(function(e) { console.warn('SW failed', e); });
   }
 });
