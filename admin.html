@@ -50,32 +50,12 @@
 </head>
 <body>
 
-  <!-- ── LOGIN SCREEN ── -->
-  <div id="loginScreen">
-    <div class="login-card">
-      <div class="tree-icon">🌳</div>
-      <h2>Admin Access</h2>
-      <p>Amboseli Green Planet Ambassadors</p>
-      <div class="mb-3 text-start">
-        <label class="form-label small fw-semibold">Password</label>
-        <div class="input-group">
-          <input type="password" id="passwordInput" class="form-control" placeholder="Enter admin password" />
-          <button class="btn btn-outline-secondary" id="togglePwd" type="button">
-            <i class="bi bi-eye"></i>
-          </button>
-        </div>
-      </div>
-      <div id="loginError" class="alert alert-danger py-2 small login-error">
-        <i class="bi bi-x-circle"></i> Incorrect password. Try again.
-      </div>
-      <div class="d-grid">
-        <button id="loginBtn" class="btn btn-success">
-          <i class="bi bi-unlock me-1"></i> Login
-        </button>
-      </div>
-      <div class="mt-3">
-        <a href="index.html" class="text-muted small">← Back to map</a>
-      </div>
+  <!-- Loading screen while Firebase checks auth -->
+  <div id="loadingScreen" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f4faf4;">
+    <div class="text-center">
+      <div style="font-size:3rem">🌳</div>
+      <div class="spinner-border text-success mt-3" role="status"></div>
+      <div class="text-muted mt-2 small">Checking access...</div>
     </div>
   </div>
 
@@ -86,7 +66,7 @@
         <a class="navbar-brand d-flex align-items-center" href="index.html">
           <i class="bi bi-tree me-2"></i> Amboseli Green Planet Ambassadors
         </a>
-        <span class="text-white fw-semibold">Admin</span>
+        <div class="d-flex align-items-center gap-2"><span class="badge bg-warning text-dark"><i class="bi bi-shield-fill"></i> Admin</span><span class="text-white small" id="adminUserInfo"></span></div>
       </div>
     </nav>
 
